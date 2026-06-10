@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "npx ts-node-dev --respawn --clear src/index.ts",
     "build": "rimraf ./dist && dist && tsc",
+    "seed": "ts-node src/seed.ts",
     "start": "npm run build && node dist/index.js"
   },
   "keywords": [],
