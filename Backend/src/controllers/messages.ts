@@ -148,11 +148,14 @@ export const likeMessage = async (req: Request, res: Response): Promise<void> =>
 
     await client.query('COMMIT');
 
-    // Broadcast like update event to all WebSocket clients
-    broadcast('LIKE_UPDATED', updatedMessage);
+    // Emitir estrictamente un objeto con { id, likes }
+    broadcast('LIKE_UPDATED', {
+      id: messageId,
+      likes: updatedMessage.likes
+    });
 
     if (isNewLike) {
-      // Broadcast notification event to the author of the message
+      // Enviar siempre la notificación si es un nuevo like, sin importar si es el mismo autor
       broadcast('NOTIFICATION', {
         type: 'NEW_LIKE',
         recipientId: authorId,
