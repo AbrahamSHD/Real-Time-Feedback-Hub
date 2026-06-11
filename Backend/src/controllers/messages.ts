@@ -7,7 +7,10 @@ export const getMessages = async (req: Request, res: Response): Promise<void> =>
     const userIdQuery = req.query.userId;
     const currentUserId = userIdQuery ? parseInt(userIdQuery as string, 10) : 0;
 
-    const query = `
+    const cursorQuery = req.query.cursor;
+    const cursor = cursorQuery ? parseInt(cursorQuery as string, 10) : null;
+
+    let query = `
       SELECT m.*, u.username, 
         EXISTS (
           SELECT 1 
@@ -16,10 +19,18 @@ export const getMessages = async (req: Request, res: Response): Promise<void> =>
         ) AS is_liked_by_me
       FROM messages m 
       LEFT JOIN users u ON m.user_id = u.id 
-      ORDER BY m.created_at DESC 
-      LIMIT 50
     `;
-    const result = await pool.query(query, [currentUserId]);
+
+    const params: any[] = [currentUserId];
+
+    if (cursor && !isNaN(cursor)) {
+      query += ` WHERE m.id < $2 `;
+      params.push(cursor);
+    }
+
+    query += ` ORDER BY m.id DESC LIMIT 10`;
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching messages:', error);
