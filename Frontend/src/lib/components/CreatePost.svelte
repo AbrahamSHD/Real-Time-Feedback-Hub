@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { createMessage } from '../api';
-  import { auth } from '../stores/auth.svelte';
-  import { getInitials } from '../utils/avatar';
+  import { createMessage } from "../api";
+  import { auth } from "../stores/auth.svelte";
+  import { getInitials } from "../utils/avatar";
 
   let { oncreate } = $props<{
     oncreate: (newMsg: any) => void;
   }>();
 
-  let content = $state('');
+  let content = $state("");
   let isSubmitting = $state(false);
 
   async function handleSubmit(event: Event) {
@@ -19,7 +19,7 @@
       const userId = auth.user?.id || 1;
       const newMsg = await createMessage(content.trim(), userId);
       oncreate(newMsg);
-      content = '';
+      content = "";
     } catch (error) {
       console.error("Failed to create message", error);
       alert("Error al publicar el mensaje. Intenta de nuevo.");
@@ -27,9 +27,9 @@
       isSubmitting = false;
     }
   }
-  
+
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       handleSubmit(event);
     }
@@ -46,10 +46,10 @@
     <div class="avatar">
       {getInitials(auth.user?.username || "User")}
     </div>
-    <textarea 
-      bind:value={content} 
+    <textarea
+      bind:value={content}
       onkeydown={handleKeydown}
-      placeholder="What's happening?" 
+      placeholder="What's happening?"
       rows="2"
       required
     ></textarea>

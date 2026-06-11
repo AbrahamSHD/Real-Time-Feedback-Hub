@@ -1,39 +1,32 @@
 const browser = typeof window !== 'undefined';
 
-export function createAuthStore() {
-  let user = $state<any>(null);
+export const auth = $state<{ user: any }>({
+    user: null
+});
 
-  async function init() {
+export async function initAuth() {
     if (!browser) return;
 
-    const stored = localStorage.getItem('guest_user');
-    if (stored) {
-      try {
-        user = JSON.parse(stored);
-        return;
-      } catch (e) {
-        console.error('Error parsing stored user:', e);
-      }
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+        try {
+            auth.user = JSON.parse(storedUser);
+            return;
+        } catch (error) {
+            console.error('Error parsing stored user:', error);
+        }
     }
 
     try {
-      const res = await fetch('/api/users/random');
-      if (res.ok) {
-        const data = await res.json();
-        user = data;
-        localStorage.setItem('guest_user', JSON.stringify(data));
-      }
-    } catch (e) {
-      console.error('Failed to init guest user:', e);
+        const response = await fetch('http://localhost:3000/api/users/random');
+        if (response.ok) {
+            const user = await response.json();
+            auth.user = user;
+            localStorage.setItem('currentUser', JSON.stringify(user));
+        } else {
+            console.error('Failed to fetch random user:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error fetching random user:', error);
     }
-  }
-
-  init();
-
-  return {
-    get user() { return user; },
-    set user(val) { user = val; }
-  };
 }
-
-export const auth = createAuthStore();
