@@ -1,5 +1,7 @@
 <script lang="ts">
   import { createMessage } from '../api';
+  import { auth } from '../stores/auth.svelte';
+  import { getInitials } from '../utils/avatar';
 
   let { oncreate } = $props<{
     oncreate: (newMsg: any) => void;
@@ -14,7 +16,8 @@
 
     isSubmitting = true;
     try {
-      const newMsg = await createMessage(content.trim(), 1);
+      const userId = auth.user?.id || 1;
+      const newMsg = await createMessage(content.trim(), userId);
       oncreate(newMsg);
       content = '';
     } catch (error) {
@@ -34,8 +37,15 @@
 </script>
 
 <form class="create-post" onsubmit={handleSubmit}>
+  {#if auth.user}
+    <div class="posting-as">
+      Publicando como: <strong>{auth.user.username}</strong>
+    </div>
+  {/if}
   <div class="input-area">
-    <img src="https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff&rounded=true" alt="User avatar" class="avatar" />
+    <div class="avatar">
+      {getInitials(auth.user?.username || "User")}
+    </div>
     <textarea 
       bind:value={content} 
       onkeydown={handleKeydown}
@@ -65,6 +75,16 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
     border-color: #dbdbdb;
   }
+  .posting-as {
+    font-size: 13px;
+    color: #8e8e8e;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #efefef;
+  }
+  .posting-as strong {
+    color: #262626;
+  }
   .input-area {
     display: flex;
     align-items: flex-start;
@@ -74,7 +94,14 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    object-fit: cover;
+    background-color: #0095f6;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 600;
+    flex-shrink: 0;
   }
   textarea {
     flex: 1;

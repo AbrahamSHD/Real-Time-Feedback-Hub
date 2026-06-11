@@ -1,10 +1,12 @@
 <script lang="ts">
   import PostCard from '../lib/components/PostCard.svelte';
   import CreatePost from '../lib/components/CreatePost.svelte';
+  import Toast from '../lib/components/Toast.svelte';
   import { getFeed } from '../lib/api';
   import { initSocket, subscribeToEvent, disconnectSocket } from '../lib/socket';
 
   let posts = $state<any[]>([]);
+  let notifications = $state<{ id: number; message: string }[]>([]);
 
   $effect(() => {
     let mounted = true;
@@ -67,9 +69,13 @@
     });
 
     const unsubscribeNotification = subscribeToEvent('NOTIFICATION', (payload: any) => {
-      const currentUserId = 1;
-      if (payload.targetUserId === currentUserId || payload.userId === currentUserId) {
-        alert(`🔔 Nueva Notificación: ${payload.message || 'Alguien interactuó con tu publicación.'}`);
+      if (payload.recipientId === 1) {
+        const id = Date.now();
+        notifications.push({ id, message: payload.message || '🔔 Nueva Notificación' });
+        setTimeout(() => {
+          const index = notifications.findIndex(n => n.id === id);
+          if (index !== -1) notifications.splice(index, 1);
+        }, 4000);
       }
     });
 
@@ -114,6 +120,8 @@
     </main>
   </div>
 </div>
+
+<Toast {notifications} />
 
 <style>
   :global(body) {

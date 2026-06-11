@@ -10,7 +10,7 @@
       content: string;
       likes: number;
       date: string;
-      isLiked?: boolean;
+      is_liked_by_me?: boolean;
     };
   }>();
 
@@ -20,8 +20,8 @@
     if (isLiking) return;
 
     // Optimistic UI update mutating the deeply reactive message prop
-    message.isLiked = !message.isLiked;
-    message.likes += message.isLiked ? 1 : -1;
+    message.is_liked_by_me = !message.is_liked_by_me;
+    message.likes += message.is_liked_by_me ? 1 : -1;
     isLiking = true;
 
     try {
@@ -29,8 +29,8 @@
     } catch (error) {
       console.error("Failed to like message:", error);
       // Revert if error
-      message.isLiked = !message.isLiked;
-      message.likes += message.isLiked ? 1 : -1;
+      message.is_liked_by_me = !message.is_liked_by_me;
+      message.likes += message.is_liked_by_me ? 1 : -1;
     } finally {
       isLiking = false;
     }
@@ -67,7 +67,7 @@
     <button
       class="action-btn"
       onclick={toggleLike}
-      class:liked={message.isLiked}
+      class:liked={message.is_liked_by_me}
       aria-label="Like post"
     >
       <svg viewBox="0 0 24 24" class="heart-icon">
