@@ -61,8 +61,8 @@
       <CreatePost oncreate={handleCreatePost} />
 
       <div class="posts-list">
-        {#each posts as post (post.id)}
-          <PostCard {post} />
+        {#each posts as message (message.id)}
+          <PostCard {message} />
         {/each}
       </div>
     </main>

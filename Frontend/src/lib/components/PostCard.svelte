@@ -1,11 +1,12 @@
 <script lang="ts">
   import { likeMessage } from "../api";
+  import { getInitials } from "../utils/avatar";
 
-  let { post } = $props<{
-    post: {
+  let { message } = $props<{
+    message: {
       id: number;
-      username: string;
-      avatar: string;
+      username?: string;
+      avatar?: string;
       content: string;
       likes: number;
       date: string;
@@ -13,8 +14,8 @@
     };
   }>();
 
-  let likes = $state(post.likes);
-  let isLiked = $state(post.isLiked || false);
+  let likes = $state(message.likes);
+  let isLiked = $state(message.isLiked || false);
   let isLiking = $state(false);
 
   async function toggleLike() {
@@ -26,7 +27,7 @@
     isLiking = true;
 
     try {
-      await likeMessage(post.id);
+      await likeMessage(message.id);
     } catch (error) {
       console.error("Failed to like message:", error);
       // Revert if error
@@ -41,11 +42,13 @@
 <article class="post-card">
   <div class="header">
     <div class="avatar-ring">
-      <img src={post.avatar} alt="{post.username} avatar" class="avatar" />
+      <div class="avatar">
+        {getInitials(message.username || "User")}
+      </div>
     </div>
     <div class="user-info">
-      <span class="username">{post.username}</span>
-      <span class="date">{post.date}</span>
+      <span class="username">{message.username || "User"}</span>
+      <span class="date">{message.date}</span>
     </div>
     <button class="more-options" aria-label="More options">
       <svg viewBox="0 0 24 24"
@@ -59,7 +62,7 @@
   </div>
 
   <div class="content">
-    <p>{post.content}</p>
+    <p>{message.content}</p>
   </div>
 
   <div class="actions">
@@ -151,9 +154,15 @@
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    object-fit: cover;
+    background-color: #0095f6; /* Solid color */
+    color: #ffffff; /* White text */
+    display: flex; /* Centered via flexbox */
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
     border: 2px solid #fff;
-    display: block;
+    box-sizing: content-box;
   }
   .user-info {
     flex: 1;
