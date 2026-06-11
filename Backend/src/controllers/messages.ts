@@ -4,15 +4,18 @@ import { broadcast } from '../sockets/notifier';
 
 export const getMessages = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Asumimos userId = 1 por ahora, según lo solicitado
-    const currentUserId = 1;
+    const userIdQuery = req.query.userId;
+    const currentUserId = userIdQuery ? parseInt(userIdQuery as string, 10) : 0;
 
     const query = `
       SELECT m.*, u.username, 
-        CASE WHEN ml.message_id IS NOT NULL THEN true ELSE false END AS is_liked_by_me
+        EXISTS (
+          SELECT 1 
+          FROM message_likes ml 
+          WHERE ml.message_id = m.id AND ml.user_id = $1
+        ) AS is_liked_by_me
       FROM messages m 
       LEFT JOIN users u ON m.user_id = u.id 
-      LEFT JOIN message_likes ml ON m.id = ml.message_id AND ml.user_id = $1
       ORDER BY m.created_at DESC 
       LIMIT 50
     `;
@@ -148,7 +151,7 @@ export const likeMessage = async (req: Request, res: Response): Promise<void> =>
     // Broadcast like update event to all WebSocket clients
     broadcast('LIKE_UPDATED', updatedMessage);
 
-    if (isNewLike && authorId !== userId) {
+    if (isNewLike) {
       // Broadcast notification event to the author of the message
       broadcast('NOTIFICATION', {
         type: 'NEW_LIKE',
