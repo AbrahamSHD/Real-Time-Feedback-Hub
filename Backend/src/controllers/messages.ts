@@ -4,7 +4,13 @@ import { broadcast } from '../sockets/notifier';
 
 export const getMessages = async (req: Request, res: Response): Promise<void> => {
   try {
-    const query = 'SELECT * FROM messages ORDER BY created_at DESC LIMIT 50';
+    const query = `
+      SELECT m.*, u.username 
+      FROM messages m 
+      LEFT JOIN users u ON m.user_id = u.id 
+      ORDER BY m.created_at DESC 
+      LIMIT 50
+    `;
     const result = await pool.query(query);
     res.json(result.rows);
   } catch (error) {
@@ -15,15 +21,28 @@ export const getMessages = async (req: Request, res: Response): Promise<void> =>
 
 export const createMessage = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { text } = req.body;
+    const { text, userId } = req.body;
 
     if (!text || typeof text !== 'string' || text.trim() === '') {
       res.status(400).json({ error: 'Text content is required and cannot be empty' });
       return;
     }
 
-    const query = 'INSERT INTO messages (text) VALUES ($1) RETURNING *';
-    const result = await pool.query(query, [text.trim()]);
+    // Fallback de seguridad: si no envían userId, usamos 1 por defecto
+    const finalUserId = userId || 1;
+
+    const query = `
+      WITH inserted_message AS (
+        INSERT INTO messages (text, user_id) 
+        VALUES ($1, $2) 
+        RETURNING *
+      )
+      SELECT m.*, u.username 
+      FROM inserted_message m
+      LEFT JOIN users u ON m.user_id = u.id;
+    `;
+
+    const result = await pool.query(query, [text.trim(), finalUserId]);
     const newMessage = result.rows[0];
 
     // Broadcast new message event to all WebSocket clients
@@ -40,7 +59,17 @@ export const likeMessage = async (req: Request, res: Response): Promise<void> =>
   try {
     const { id } = req.params;
 
-    const query = 'UPDATE messages SET likes = likes + 1 WHERE id = $1 RETURNING *';
+    const query = `
+      WITH updated_message AS (
+        UPDATE messages 
+        SET likes = likes + 1 
+        WHERE id = $1 
+        RETURNING *
+      )
+      SELECT m.*, u.username 
+      FROM updated_message m
+      LEFT JOIN users u ON m.user_id = u.id;
+    `;
     const result = await pool.query(query, [id]);
 
     if (result.rowCount === 0) {
