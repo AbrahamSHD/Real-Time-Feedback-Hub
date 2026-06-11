@@ -2,6 +2,7 @@
   import PostCard from '../lib/components/PostCard.svelte';
   import CreatePost from '../lib/components/CreatePost.svelte';
   import { getFeed } from '../lib/api';
+  import { initSocket, subscribeToEvent, disconnectSocket } from '../lib/socket';
 
   let posts = $state<any[]>([]);
 
@@ -32,6 +33,43 @@
     
     return () => {
       mounted = false;
+    };
+  });
+
+  $effect(() => {
+    initSocket();
+
+    const unsubscribeNewMessage = subscribeToEvent('NEW_MESSAGE', (newMsg: any) => {
+      // Prevent duplicates if we already added it optimistically
+      if (!posts.some(p => p.id === newMsg.id)) {
+        const newPost = {
+          id: newMsg.id,
+          username: newMsg.username || `user_${newMsg.userId || 'ws'}`,
+          avatar: newMsg.avatar || 'https://ui-avatars.com/api/?name=User&background=random&color=fff',
+          content: newMsg.text || newMsg.content || '',
+          likes: newMsg.likes || 0,
+          date: newMsg.date || 'Just now',
+          isLiked: newMsg.isLiked || false
+        };
+        posts.unshift(newPost);
+      }
+    });
+
+    const unsubscribeLikeUpdated = subscribeToEvent('LIKE_UPDATED', (payload: any) => {
+      // Payload format could be { messageId: 1, likes: 10 } or { id: 1, likes: 10 }
+      const targetId = payload.messageId ?? payload.id;
+      const updatedLikes = payload.likes;
+      
+      const index = posts.findIndex(p => p.id === targetId);
+      if (index !== -1 && updatedLikes !== undefined) {
+        posts[index].likes = updatedLikes;
+      }
+    });
+
+    return () => {
+      unsubscribeNewMessage();
+      unsubscribeLikeUpdated();
+      disconnectSocket();
     };
   });
 
