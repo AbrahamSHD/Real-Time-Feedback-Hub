@@ -1,6 +1,7 @@
 <script lang="ts">
   import { likeMessage } from "../api";
   import { getInitials } from "../utils/avatar";
+  import { auth } from "../stores/auth.svelte";
 
   let { message } = $props<{
     message: {
@@ -19,16 +20,18 @@
   async function toggleLike() {
     if (isLiking) return;
 
-    // Optimistic UI update mutating the deeply reactive message prop
+    // Inversión inmediata de estado local (Optimistic UI)
     message.is_liked_by_me = !message.is_liked_by_me;
+    // Sumar o restar 1 al contador
     message.likes += message.is_liked_by_me ? 1 : -1;
     isLiking = true;
 
     try {
-      await likeMessage(message.id, 1);
+      const userId = auth.user?.id || 1;
+      await likeMessage(message.id, userId);
     } catch (error) {
       console.error("Failed to like message:", error);
-      // Revert if error
+      // Revertir cambios locales si falla la petición
       message.is_liked_by_me = !message.is_liked_by_me;
       message.likes += message.is_liked_by_me ? 1 : -1;
     } finally {

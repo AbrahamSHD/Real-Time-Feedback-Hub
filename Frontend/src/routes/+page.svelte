@@ -4,6 +4,7 @@
   import Toast from '../lib/components/Toast.svelte';
   import { getFeed } from '../lib/api';
   import { initSocket, subscribeToEvent, disconnectSocket } from '../lib/socket';
+  import { auth } from '../lib/stores/auth.svelte';
 
   let posts = $state<any[]>([]);
   let notifications = $state<{ id: number; message: string }[]>([]);
@@ -24,7 +25,7 @@
           content: msg.text || msg.content || '',
           likes: msg.likes || 0,
           date: msg.date || 'Just now',
-          isLiked: msg.isLiked || false
+          is_liked_by_me: msg.is_liked_by_me || false
         }));
       } catch (error) {
         console.error("Failed to load feed", error);
@@ -51,30 +52,34 @@
           content: newMsg.text || newMsg.content || '',
           likes: newMsg.likes || 0,
           date: newMsg.date || 'Just now',
-          isLiked: newMsg.isLiked || false
+          is_liked_by_me: newMsg.is_liked_by_me || false
         };
-        posts.unshift(newPost);
+        // Reasignación para Svelte 5
+        posts = [newPost, ...posts];
       }
     });
 
     const unsubscribeLikeUpdated = subscribeToEvent('LIKE_UPDATED', (payload: any) => {
-      // Payload format could be { messageId: 1, likes: 10 } or { id: 1, likes: 10 }
       const targetId = payload.messageId ?? payload.id;
       const updatedLikes = payload.likes;
       
-      const index = posts.findIndex(p => p.id === targetId);
-      if (index !== -1 && updatedLikes !== undefined) {
-        posts[index].likes = updatedLikes;
-      }
+      // Svelte 5: reasignar el arreglo completo con .map() para disparar reactividad
+      posts = posts.map(p => p.id === targetId ? { ...p, likes: updatedLikes } : p);
     });
 
     const unsubscribeNotification = subscribeToEvent('NOTIFICATION', (payload: any) => {
-      if (payload.recipientId === 1) {
+      // Comparar con el id del usuario autenticado
+      if (auth.user && payload.recipientId === auth.user.id) {
         const id = Date.now();
-        notifications.push({ id, message: payload.message || '🔔 Nueva Notificación' });
+        const msg = payload.messageSnippet 
+          ? `🔔 A ${payload.likerName || 'Alguien'} le gustó: "${payload.messageSnippet}"` 
+          : '🔔 Nueva Notificación';
+          
+        // Reasignación del arreglo en Svelte 5
+        notifications = [...notifications, { id, message: msg }];
+        
         setTimeout(() => {
-          const index = notifications.findIndex(n => n.id === id);
-          if (index !== -1) notifications.splice(index, 1);
+          notifications = notifications.filter(n => n.id !== id);
         }, 4000);
       }
     });
@@ -96,7 +101,7 @@
       content: newMsg.text || newMsg.content || '',
       likes: newMsg.likes || 0,
       date: newMsg.date || 'Just now',
-      isLiked: newMsg.isLiked || false
+      is_liked_by_me: newMsg.is_liked_by_me || false
     };
     
     posts.unshift(newPost);
