@@ -66,9 +66,17 @@
       }
     });
 
+    const unsubscribeNotification = subscribeToEvent('NOTIFICATION', (payload: any) => {
+      const currentUserId = 1;
+      if (payload.targetUserId === currentUserId || payload.userId === currentUserId) {
+        alert(`🔔 Nueva Notificación: ${payload.message || 'Alguien interactuó con tu publicación.'}`);
+      }
+    });
+
     return () => {
       unsubscribeNewMessage();
       unsubscribeLikeUpdated();
+      unsubscribeNotification();
       disconnectSocket();
     };
   });

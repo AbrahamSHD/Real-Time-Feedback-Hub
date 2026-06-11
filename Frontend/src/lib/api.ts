@@ -28,10 +28,14 @@ export async function createMessage(text: string, userId: number = 1) {
   }
 }
 
-export async function likeMessage(messageId: number) {
+export async function likeMessage(messageId: number, userId: number = 1) {
   try {
     const res = await fetch(`${API_URL}/messages/${messageId}/like`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId }),
     });
     if (!res.ok) throw new Error('Failed to like message');
     return await res.json();

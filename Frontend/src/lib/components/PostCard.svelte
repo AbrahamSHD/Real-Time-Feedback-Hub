@@ -14,25 +14,23 @@
     };
   }>();
 
-  let likes = $state(message.likes);
-  let isLiked = $state(message.isLiked || false);
   let isLiking = $state(false);
 
   async function toggleLike() {
     if (isLiking) return;
 
-    // Optimistic UI update
-    isLiked = !isLiked;
-    likes += isLiked ? 1 : -1;
+    // Optimistic UI update mutating the deeply reactive message prop
+    message.isLiked = !message.isLiked;
+    message.likes += message.isLiked ? 1 : -1;
     isLiking = true;
 
     try {
-      await likeMessage(message.id);
+      await likeMessage(message.id, 1);
     } catch (error) {
       console.error("Failed to like message:", error);
       // Revert if error
-      isLiked = !isLiked;
-      likes += isLiked ? 1 : -1;
+      message.isLiked = !message.isLiked;
+      message.likes += message.isLiked ? 1 : -1;
     } finally {
       isLiking = false;
     }
@@ -69,7 +67,7 @@
     <button
       class="action-btn"
       onclick={toggleLike}
-      class:liked={isLiked}
+      class:liked={message.isLiked}
       aria-label="Like post"
     >
       <svg viewBox="0 0 24 24" class="heart-icon">
@@ -112,7 +110,7 @@
   </div>
 
   <div class="footer">
-    <span class="likes-count"><strong>{likes}</strong> likes</span>
+    <span class="likes-count"><strong>{message.likes}</strong> likes</span>
   </div>
 </article>
 
