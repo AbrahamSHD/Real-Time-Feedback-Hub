@@ -16,16 +16,23 @@ const usersToInsert = [
   "ElChicharrónFilósofo",
   "SenseiDelTráfico",
   "TaqueroKarateka",
-  "ElCoachDelMercado"
+  "ElCoachDelMercado",
+  "Lider_Consejo",
+  "PM",
+  "C",
+  "S",
+  "Mole"
 ];
 
 const messages = [
   "Consejo de hombres: nunca dejes que un hermano ande sin llanta de refacción. 🛞🤝",
   "El gym no miente, pero el espejo a veces sí. Confía en el proceso. 💪📈",
+  "La Benelli 180s a $48,999 MXN fue una gran decisión, a rodar se ha dicho. 🏍️💨",
   "No hay peor sensación que salir de casa y recordar que no traes los audífonos. 🎧😤",
   "¿Alguien más revisa el cel apenas despierta aunque no espere nada importante? 📱😴",
   "La semana tiene 7 días pero el cuerpo solo pide descanso los 7. 😅🛌",
   "Si no le metes esfuerzo en silencio, el ruido del fracaso se escucha fuerte. 🔇🏆",
+  "Recuerden que el campo TIPO_CAMBIO en el reporte debe ser estrictamente el de la fecha de emisión. 📝💸",
   "El café de las 6am tiene un sabor que ningún café del día iguala. ☕🌅",
   "Hay personas que llegan a tu vida a enseñarte que no todo el mundo merece tu energía. ⚡️🚪",
   "Playlist nueva, actitud nueva. Así de simple. 🎶🔥",
@@ -72,20 +79,34 @@ async function seed() {
     const count = parseInt(msgCountRes.rows[0].count, 10);
 
     if (count === 0) {
-      console.log('The messages table is empty. Inserting 15 mock messages linked to users...');
+      console.log(`The messages table is empty. Inserting ${messages.length} mock messages linked to users...`);
 
       for (const text of messages) {
-        // Assign a random user_id from the userIds array
         const randomUserId = userIds[Math.floor(Math.random() * userIds.length)];
-        const randomLikes = Math.floor(Math.random() * 10);
 
-        await pool.query(
-          'INSERT INTO messages (text, likes, user_id) VALUES ($1, $2, $3)',
+        const randomLikes = Math.floor(Math.random() * Math.min(10, userIds.length));
+
+        const messageRes = await pool.query(
+          'INSERT INTO messages (text, likes, user_id) VALUES ($1, $2, $3) RETURNING id',
           [text, randomLikes, randomUserId]
         );
+
+        const newMessageId = messageRes.rows[0].id;
+
+        if (randomLikes > 0) {
+          const shuffledUsers = [...userIds].sort(() => 0.5 - Math.random());
+          const likers = shuffledUsers.slice(0, randomLikes);
+
+          for (const likerId of likers) {
+            await pool.query(
+              'INSERT INTO message_likes (user_id, message_id) VALUES ($1, $2)',
+              [likerId, newMessageId]
+            );
+          }
+        }
       }
 
-      console.log('Seed completed successfully. 15 messages linked to users have been inserted.');
+      console.log(`Seed completed successfully. ${messages.length} messages and their relational likes have been inserted.`);
     } else {
       console.log(`Database already contains ${count} messages. Skipping message seeding.`);
     }
