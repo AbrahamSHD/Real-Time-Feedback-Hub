@@ -4,14 +4,19 @@ import { broadcast } from '../sockets/notifier';
 
 export const getMessages = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Asumimos userId = 1 por ahora, según lo solicitado
+    const currentUserId = 1;
+
     const query = `
-      SELECT m.*, u.username 
+      SELECT m.*, u.username, 
+        CASE WHEN ml.message_id IS NOT NULL THEN true ELSE false END AS is_liked_by_me
       FROM messages m 
       LEFT JOIN users u ON m.user_id = u.id 
+      LEFT JOIN message_likes ml ON m.id = ml.message_id AND ml.user_id = $1
       ORDER BY m.created_at DESC 
       LIMIT 50
     `;
-    const result = await pool.query(query);
+    const result = await pool.query(query, [currentUserId]);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching messages:', error);
@@ -37,7 +42,7 @@ export const createMessage = async (req: Request, res: Response): Promise<void> 
         VALUES ($1, $2) 
         RETURNING *
       )
-      SELECT m.*, u.username 
+      SELECT m.*, u.username, false AS is_liked_by_me
       FROM inserted_message m
       LEFT JOIN users u ON m.user_id = u.id;
     `;
@@ -63,21 +68,20 @@ export const likeMessage = async (req: Request, res: Response): Promise<void> =>
 
     if (!userId || isNaN(messageId)) {
       res.status(400).json({ error: 'Valid message ID and userId are required' });
-      client.release();
       return;
     }
 
     await client.query('BEGIN');
 
-    // Check if the message exists to get the author's user_id
-    const messageCheck = await client.query('SELECT user_id FROM messages WHERE id = $1', [messageId]);
+    // Check if the message exists to get the author's user_id and text
+    const messageCheck = await client.query('SELECT user_id, text FROM messages WHERE id = $1', [messageId]);
     if (messageCheck.rowCount === 0) {
       await client.query('ROLLBACK');
       res.status(404).json({ error: 'Message not found' });
-      client.release();
       return;
     }
     const authorId = messageCheck.rows[0].user_id;
+    const messageText = messageCheck.rows[0].text;
 
     // Check if the like already exists for this user and message
     const likeCheck = await client.query(
@@ -87,6 +91,8 @@ export const likeMessage = async (req: Request, res: Response): Promise<void> =>
 
     let isNewLike = false;
     let updateQuery = '';
+    let likerName = 'Alguien';
+    let messageSnippet = '';
 
     if (likeCheck.rowCount && likeCheck.rowCount > 0) {
       // LIKE EXISTS: Remove it and decrement count
@@ -97,11 +103,11 @@ export const likeMessage = async (req: Request, res: Response): Promise<void> =>
       updateQuery = `
         WITH updated_message AS (
           UPDATE messages 
-          SET likes = likes - 1 
+          SET likes = GREATEST(likes - 1, 0) 
           WHERE id = $1 
           RETURNING *
         )
-        SELECT m.*, u.username 
+        SELECT m.*, u.username, false AS is_liked_by_me
         FROM updated_message m
         LEFT JOIN users u ON m.user_id = u.id;
       `;
@@ -118,11 +124,20 @@ export const likeMessage = async (req: Request, res: Response): Promise<void> =>
           WHERE id = $1 
           RETURNING *
         )
-        SELECT m.*, u.username 
+        SELECT m.*, u.username, true AS is_liked_by_me
         FROM updated_message m
         LEFT JOIN users u ON m.user_id = u.id;
       `;
       isNewLike = true;
+
+      // Obtener username de la persona que está dando el like
+      const userCheck = await client.query('SELECT username FROM users WHERE id = $1', [userId]);
+      if (userCheck.rowCount && userCheck.rowCount > 0) {
+        likerName = userCheck.rows[0].username;
+      }
+
+      // Crear snippet de los primeros 30 caracteres
+      messageSnippet = messageText.length > 30 ? messageText.substring(0, 30) + '...' : messageText;
     }
 
     const result = await client.query(updateQuery, [messageId]);
@@ -133,14 +148,13 @@ export const likeMessage = async (req: Request, res: Response): Promise<void> =>
     // Broadcast like update event to all WebSocket clients
     broadcast('LIKE_UPDATED', updatedMessage);
 
-    if (isNewLike) {
+    if (isNewLike && authorId !== userId) {
       // Broadcast notification event to the author of the message
       broadcast('NOTIFICATION', {
         type: 'NEW_LIKE',
-        message: 'Alguien ha dado like a tu mensaje',
-        authorId: authorId,
-        messageId: messageId,
-        likerId: userId
+        recipientId: authorId,
+        likerName: likerName,
+        messageSnippet: messageSnippet
       });
     }
 
