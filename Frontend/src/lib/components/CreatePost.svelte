@@ -1,15 +1,27 @@
 <script lang="ts">
+  import { createMessage } from '../api';
+
   let { oncreate } = $props<{
-    oncreate: (content: string) => void;
+    oncreate: (newMsg: any) => void;
   }>();
 
   let content = $state('');
+  let isSubmitting = $state(false);
 
-  function handleSubmit(event: Event) {
+  async function handleSubmit(event: Event) {
     event.preventDefault();
-    if (content.trim()) {
-      oncreate(content.trim());
+    if (!content.trim() || isSubmitting) return;
+
+    isSubmitting = true;
+    try {
+      const newMsg = await createMessage(content.trim(), 1);
+      oncreate(newMsg);
       content = '';
+    } catch (error) {
+      console.error("Failed to create message", error);
+      alert("Error al publicar el mensaje. Intenta de nuevo.");
+    } finally {
+      isSubmitting = false;
     }
   }
   

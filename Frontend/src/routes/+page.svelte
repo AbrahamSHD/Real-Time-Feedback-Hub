@@ -1,47 +1,50 @@
 <script lang="ts">
   import PostCard from '../lib/components/PostCard.svelte';
   import CreatePost from '../lib/components/CreatePost.svelte';
+  import { getFeed } from '../lib/api';
 
-  // Mock data managed with Svelte 5 rune $state
-  let posts = $state([
-    {
-      id: 1,
-      username: 'ui_designer',
-      avatar: 'https://ui-avatars.com/api/?name=UI+Designer&background=FFB6C1&color=fff',
-      content: 'Just wrapped up a new design system using minimal aesthetic! What do you guys think? ✨🎨',
-      likes: 342,
-      date: '2 hours ago',
-      isLiked: true
-    },
-    {
-      id: 2,
-      username: 'svelte_dev',
-      avatar: 'https://ui-avatars.com/api/?name=Svelte+Dev&background=ff3e00&color=fff',
-      content: 'Svelte 5 runes make state management so clean. The developer experience is just unmatched. 🔥',
-      likes: 128,
-      date: '5 hours ago',
-      isLiked: false
-    },
-    {
-      id: 3,
-      username: 'frontend_master',
-      avatar: 'https://ui-avatars.com/api/?name=Frontend+Master&background=7FFFD4&color=333',
-      content: 'Learning to build highly interactive UIs. Consistency and micro-animations are key to a premium feel. 💻',
-      likes: 89,
-      date: '1 day ago',
-      isLiked: false
+  let posts = $state<any[]>([]);
+
+  $effect(() => {
+    let mounted = true;
+    
+    async function loadData() {
+      try {
+        const data = await getFeed();
+        if (!mounted) return;
+        
+        // Map backend data to the structure the UI expects
+        posts = data.map((msg: any) => ({
+          id: msg.id,
+          username: msg.username || `user_${msg.userId || 'unknown'}`,
+          avatar: msg.avatar || 'https://ui-avatars.com/api/?name=User&background=random&color=fff',
+          content: msg.text || msg.content || '',
+          likes: msg.likes || 0,
+          date: msg.date || 'Just now',
+          isLiked: msg.isLiked || false
+        }));
+      } catch (error) {
+        console.error("Failed to load feed", error);
+      }
     }
-  ]);
+    
+    loadData();
+    
+    return () => {
+      mounted = false;
+    };
+  });
 
-  function handleCreatePost(content: string) {
+  function handleCreatePost(newMsg: any) {
+    // Map the new message from the API back to the UI structure
     const newPost = {
-      id: Date.now(),
-      username: 'current_user',
-      avatar: 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff',
-      content,
-      likes: 0,
-      date: 'Just now',
-      isLiked: false
+      id: newMsg.id || Date.now(),
+      username: newMsg.username || 'current_user',
+      avatar: newMsg.avatar || 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff',
+      content: newMsg.text || newMsg.content || '',
+      likes: newMsg.likes || 0,
+      date: newMsg.date || 'Just now',
+      isLiked: newMsg.isLiked || false
     };
     
     posts.unshift(newPost);
