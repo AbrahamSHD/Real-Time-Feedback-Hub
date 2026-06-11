@@ -1,5 +1,24 @@
 import pool from './config/db';
 
+const usersToInsert = [
+  "Carlos_MX",
+  "LauraGonzalez",
+  "miguelito_rdz",
+  "SofiaRamirez",
+  "andres.torres",
+  "MariaFernanda",
+  "luis_hdz99",
+  "TacosDeMadrugada",
+  "MusculoConWifi",
+  "ElNerdDelGym",
+  "ChilaquilsALas3am",
+  "FrijolPensador",
+  "ElChicharrónFilósofo",
+  "SenseiDelTráfico",
+  "TaqueroKarateka",
+  "ElCoachDelMercado"
+];
+
 const messages = [
   "Consejo de hombres: nunca dejes que un hermano ande sin llanta de refacción. 🛞🤝",
   "El gym no miente, pero el espejo a veces sí. Confía en el proceso. 💪📈",
@@ -35,27 +54,43 @@ const messages = [
 
 async function seed() {
   try {
-    console.log('Starting seed process...');
-    // Verify if database contains any messages
-    const res = await pool.query('SELECT COUNT(*) FROM messages');
-    const count = parseInt(res.rows[0].count, 10);
+    console.log('Starting relational seed process...');
+
+    // 1. Insert/ensure users catalog and collect their IDs
+    const userIds: number[] = [];
+    for (const username of usersToInsert) {
+      const res = await pool.query(
+        'INSERT INTO users (username) VALUES ($1) ON CONFLICT (username) DO UPDATE SET username = EXCLUDED.username RETURNING id',
+        [username]
+      );
+      userIds.push(res.rows[0].id);
+    }
+    console.log(`Users seeded/verified. Obtained ${userIds.length} user IDs.`);
+
+    // 2. Check if messages table is empty
+    const msgCountRes = await pool.query('SELECT COUNT(*) FROM messages');
+    const count = parseInt(msgCountRes.rows[0].count, 10);
 
     if (count === 0) {
-      console.log('The messages table is empty. Inserting 15 mock messages...');
+      console.log('The messages table is empty. Inserting 15 mock messages linked to users...');
 
-      const selectedMessages = messages.slice(0, 15);
-
-      for (const text of selectedMessages) {
+      for (const text of messages) {
+        // Assign a random user_id from the userIds array
+        const randomUserId = userIds[Math.floor(Math.random() * userIds.length)];
         const randomLikes = Math.floor(Math.random() * 10);
-        await pool.query('INSERT INTO messages (text, likes) VALUES ($1, $2)', [text, randomLikes]);
+
+        await pool.query(
+          'INSERT INTO messages (text, likes, user_id) VALUES ($1, $2, $3)',
+          [text, randomLikes, randomUserId]
+        );
       }
 
-      console.log('Seed completed successfully. 15 messages inserted.');
+      console.log('Seed completed successfully. 15 messages linked to users have been inserted.');
     } else {
-      console.log(`Database already contains ${count} messages. Skipping seeding.`);
+      console.log(`Database already contains ${count} messages. Skipping message seeding.`);
     }
   } catch (error) {
-    console.error('Error during seeding:', error);
+    console.error('Error during relational seeding:', error);
   } finally {
     await pool.end();
   }
